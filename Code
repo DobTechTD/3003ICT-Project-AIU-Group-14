@@ -1,0 +1,477 @@
+#include <DHT.h>
+#include <Wire.h>
+#include <LiquidCrystal_I2C.h>
+
+// --------------------------------------------------
+// Pin Definitions
+// --------------------------------------------------
+#define DHT_PIN 2
+#define DHT_TYPE DHT22
+
+const int BUTTON_PIN = 3;
+const int RELAY_PIN  = 4;
+const int BUZZER_PIN = 5;
+
+const int RGB_RED_PIN   = 9;
+const int RGB_GREEN_PIN = 10;
+const int RGB_BLUE_PIN  = 11;
+
+const int SOIL_PIN  = A0;
+const int WATER_PIN = A1;
+const int LIGHT_PIN = A2;
+
+// --------------------------------------------------
+// Objects
+// --------------------------------------------------
+DHT dht(DHT_PIN, DHT_TYPE);
+LiquidCrystal_I2C lcd(0x27, 20, 4);
+
+// --------------------------------------------------
+// FSM States
+// --------------------------------------------------
+enum SystemState {
+  IDLE,
+  MONITORING,
+  IRRIGATING,
+  WARNING,
+  FAILSAFE
+};
+
+SystemState currentState = IDLE;
+
+// --------------------------------------------------
+// Thresholds
+// --------------------------------------------------
+const int SOIL_DRY_THRESHOLD = 40;          // Below 40% = dry
+const int SOIL_SEVERE_DRY_THRESHOLD = 20;   // Below 20% = severe dryness
+
+const int WATER_LOW_THRESHOLD = 25;         // 10–25% = low/critical warning
+const int WATER_FAILSAFE_THRESHOLD = 10;    // Below 10% = failsafe
+
+const int LIGHT_DAY_THRESHOLD = 45;         // Above 45% = day
+
+const float TEMP_HIGH_THRESHOLD = 30.0;     // High temperature
+const float TEMP_WARNING_THRESHOLD = 35.0;  // Severe heat risk
+
+const unsigned long IRRIGATION_DURATION = 8000; // 8 seconds for basic test
+
+// --------------------------------------------------
+// Timing Variables
+// --------------------------------------------------
+unsigned long lastSensorRead = 0;
+unsigned long lastLcdUpdate = 0;
+unsigned long stateStartTime = 0;
+
+const unsigned long SENSOR_INTERVAL = 1000;
+const unsigned long LCD_INTERVAL = 1000;
+
+// --------------------------------------------------
+// Sensor Variables
+// --------------------------------------------------
+float temperatureC = 0.0;
+
+int soilRaw = 0;
+int waterRaw = 0;
+int lightRaw = 0;
+
+int soilPercent = 0;
+int waterPercent = 0;
+int lightPercent = 0;
+
+bool sensorsValid = true;
+bool isDay = true;
+
+// --------------------------------------------------
+// Button Debounce Variables
+// --------------------------------------------------
+bool lastButtonReading = HIGH;
+bool stableButtonState = HIGH;
+unsigned long lastDebounceTime = 0;
+const unsigned long DEBOUNCE_DELAY = 50;
+
+// --------------------------------------------------
+// Relay Logic
+// If your relay works backwards, swap these two values.
+// --------------------------------------------------
+const int RELAY_ON = HIGH;
+const int RELAY_OFF = LOW;
+
+// --------------------------------------------------
+// Setup
+// --------------------------------------------------
+void setup() {
+  Serial.begin(9600);
+
+  dht.begin();
+
+  lcd.init();
+  lcd.backlight();
+
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+
+  pinMode(RELAY_PIN, OUTPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+
+  pinMode(RGB_RED_PIN, OUTPUT);
+  pinMode(RGB_GREEN_PIN, OUTPUT);
+  pinMode(RGB_BLUE_PIN, OUTPUT);
+
+  digitalWrite(RELAY_PIN, RELAY_OFF);
+  noTone(BUZZER_PIN);
+  setRGB(false, false, true); // Idle = blue
+
+  lcd.setCursor(0, 0);
+  lcd.print("A.I.U FSM TEST");
+  lcd.setCursor(0, 1);
+  lcd.print("Checkpoint 2");
+  lcd.setCursor(0, 2);
+  lcd.print("Press button");
+  lcd.setCursor(0, 3);
+  lcd.print("to start system");
+
+  Serial.println("A.I.U Checkpoint 2: Basic FSM Implementation Started");
+  Serial.println("Initial State: IDLE");
+}
+
+// --------------------------------------------------
+// Main Loop
+// --------------------------------------------------
+void loop() {
+  unsigned long currentTime = millis();
+
+  bool buttonPressedEvent = readButtonPressedEvent();
+
+  if (currentTime - lastSensorRead >= SENSOR_INTERVAL) {
+    lastSensorRead = currentTime;
+    readSensors();
+  }
+
+  updateFSM(currentTime, buttonPressedEvent);
+  applyStateOutputs(currentTime);
+
+  if (currentTime - lastLcdUpdate >= LCD_INTERVAL) {
+    lastLcdUpdate = currentTime;
+    updateLCD();
+    printSerialData();
+  }
+}
+
+// --------------------------------------------------
+// Read All Sensors
+// --------------------------------------------------
+void readSensors() {
+  float tempReading = dht.readTemperature();
+
+  if (isnan(tempReading)) {
+    sensorsValid = false;
+  } else {
+    sensorsValid = true;
+    temperatureC = tempReading;
+  }
+
+  soilRaw = analogRead(SOIL_PIN);
+  waterRaw = analogRead(WATER_PIN);
+  lightRaw = analogRead(LIGHT_PIN);
+
+  soilPercent = map(soilRaw, 0, 1023, 0, 100);
+  waterPercent = map(waterRaw, 0, 1023, 0, 100);
+  lightPercent = map(lightRaw, 0, 1023, 0, 100);
+
+  soilPercent = constrain(soilPercent, 0, 100);
+  waterPercent = constrain(waterPercent, 0, 100);
+  lightPercent = constrain(lightPercent, 0, 100);
+
+  isDay = lightPercent >= LIGHT_DAY_THRESHOLD;
+}
+
+// --------------------------------------------------
+// FSM Update Logic
+// --------------------------------------------------
+void updateFSM(unsigned long currentTime, bool buttonPressedEvent) {
+
+  // Button starts the system from IDLE
+  if (currentState == IDLE && buttonPressedEvent) {
+    changeState(MONITORING);
+    return;
+  }
+
+  // Button can reset FAILSAFE only if the system is safe again
+  if (currentState == FAILSAFE && buttonPressedEvent) {
+    if (sensorsValid && waterPercent >= WATER_FAILSAFE_THRESHOLD) {
+      changeState(IDLE);
+    }
+    return;
+  }
+
+  // IDLE stays idle until button press
+  if (currentState == IDLE) {
+    return;
+  }
+
+  // Universal safety rule
+  if (!sensorsValid || waterPercent < WATER_FAILSAFE_THRESHOLD) {
+    if (currentState != FAILSAFE) {
+      changeState(FAILSAFE);
+    }
+    return;
+  }
+
+  // State-specific transitions
+  switch (currentState) {
+
+    case MONITORING:
+      if (isHeatWarning() && isSeverelyDry()) {
+        changeState(WARNING);
+      }
+      else if (waterPercent < WATER_LOW_THRESHOLD) {
+        changeState(WARNING);
+      }
+      else if (isDry() && isHighTemperature() && waterPercent >= WATER_LOW_THRESHOLD) {
+        changeState(IRRIGATING);
+      }
+      break;
+
+    case IRRIGATING:
+      if (waterPercent < WATER_LOW_THRESHOLD) {
+        changeState(WARNING);
+      }
+      else if (currentTime - stateStartTime >= IRRIGATION_DURATION) {
+        changeState(MONITORING);
+      }
+      else if (!isDry()) {
+        changeState(MONITORING);
+      }
+      break;
+
+    case WARNING:
+      if (!isHeatWarning() && !isSeverelyDry() && waterPercent >= WATER_LOW_THRESHOLD) {
+        changeState(MONITORING);
+      }
+      break;
+
+    case FAILSAFE:
+      // Failsafe is handled above using button reset
+      break;
+
+    case IDLE:
+      // Already handled above
+      break;
+  }
+}
+
+// --------------------------------------------------
+// Change State Helper
+// --------------------------------------------------
+void changeState(SystemState newState) {
+  if (currentState != newState) {
+    currentState = newState;
+    stateStartTime = millis();
+
+    Serial.print("State changed to: ");
+    Serial.println(getStateName(currentState));
+  }
+}
+
+// --------------------------------------------------
+// Apply Outputs Based on Current State
+// --------------------------------------------------
+void applyStateOutputs(unsigned long currentTime) {
+  switch (currentState) {
+
+    case IDLE:
+      digitalWrite(RELAY_PIN, RELAY_OFF);
+      noTone(BUZZER_PIN);
+      setRGB(false, false, true); // Blue
+      break;
+
+    case MONITORING:
+      digitalWrite(RELAY_PIN, RELAY_OFF);
+      noTone(BUZZER_PIN);
+      setRGB(false, true, false); // Green
+      break;
+
+    case IRRIGATING:
+      digitalWrite(RELAY_PIN, RELAY_ON);
+      noTone(BUZZER_PIN);
+      setRGB(false, true, true); // Cyan
+      break;
+
+    case WARNING:
+      digitalWrite(RELAY_PIN, RELAY_OFF);
+      setRGB(true, true, false); // Yellow
+
+      // Slow warning beep
+      if ((currentTime / 500) % 2 == 0) {
+        tone(BUZZER_PIN, 800);
+      } else {
+        noTone(BUZZER_PIN);
+      }
+      break;
+
+    case FAILSAFE:
+      digitalWrite(RELAY_PIN, RELAY_OFF);
+      setRGB(true, false, false); // Red
+
+      // Faster critical beep
+      if ((currentTime / 200) % 2 == 0) {
+        tone(BUZZER_PIN, 1500);
+      } else {
+        noTone(BUZZER_PIN);
+      }
+      break;
+  }
+}
+
+// --------------------------------------------------
+// Button Press Event with Debounce
+// --------------------------------------------------
+bool readButtonPressedEvent() {
+  bool reading = digitalRead(BUTTON_PIN);
+
+  if (reading != lastButtonReading) {
+    lastDebounceTime = millis();
+  }
+
+  bool pressedEvent = false;
+
+  if ((millis() - lastDebounceTime) > DEBOUNCE_DELAY) {
+    if (reading != stableButtonState) {
+      stableButtonState = reading;
+
+      // INPUT_PULLUP means LOW = pressed
+      if (stableButtonState == LOW) {
+        pressedEvent = true;
+      }
+    }
+  }
+
+  lastButtonReading = reading;
+  return pressedEvent;
+}
+
+// --------------------------------------------------
+// LCD Display
+// --------------------------------------------------
+void updateLCD() {
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("State:");
+  lcd.print(getStateName(currentState));
+
+  lcd.setCursor(0, 1);
+  lcd.print("Temp:");
+  if (!sensorsValid) {
+    lcd.print("ERR");
+  } else {
+    lcd.print(temperatureC, 1);
+    lcd.print("C");
+  }
+
+  lcd.setCursor(12, 1);
+  lcd.print(isDay ? "DAY" : "NIGHT");
+
+  lcd.setCursor(0, 2);
+  lcd.print("Soil:");
+  lcd.print(soilPercent);
+  lcd.print("%");
+
+  lcd.setCursor(10, 2);
+  lcd.print("Wtr:");
+  lcd.print(waterPercent);
+  lcd.print("%");
+
+  lcd.setCursor(0, 3);
+  lcd.print("Light:");
+  lcd.print(lightPercent);
+  lcd.print("%");
+
+  lcd.setCursor(12, 3);
+  lcd.print("Pump:");
+  lcd.print(currentState == IRRIGATING ? "ON" : "OFF");
+}
+
+// --------------------------------------------------
+// Serial Monitor Output
+// --------------------------------------------------
+void printSerialData() {
+  Serial.println("----------------------------");
+
+  Serial.print("State: ");
+  Serial.println(getStateName(currentState));
+
+  Serial.print("Temperature: ");
+  if (!sensorsValid) {
+    Serial.println("ERROR");
+  } else {
+    Serial.print(temperatureC);
+    Serial.println(" C");
+  }
+
+  Serial.print("Soil Moisture: ");
+  Serial.print(soilPercent);
+  Serial.println("%");
+
+  Serial.print("Water Level: ");
+  Serial.print(waterPercent);
+  Serial.println("%");
+
+  Serial.print("Light Level: ");
+  Serial.print(lightPercent);
+  Serial.print("% | ");
+  Serial.println(isDay ? "DAY" : "NIGHT");
+
+  Serial.print("Pump: ");
+  Serial.println(currentState == IRRIGATING ? "ON" : "OFF");
+}
+
+// --------------------------------------------------
+// Condition Helper Functions
+// --------------------------------------------------
+bool isDry() {
+  return soilPercent < SOIL_DRY_THRESHOLD;
+}
+
+bool isSeverelyDry() {
+  return soilPercent < SOIL_SEVERE_DRY_THRESHOLD;
+}
+
+bool isHighTemperature() {
+  return temperatureC >= TEMP_HIGH_THRESHOLD;
+}
+
+bool isHeatWarning() {
+  return temperatureC >= TEMP_WARNING_THRESHOLD;
+}
+
+// --------------------------------------------------
+// RGB Helper
+// Common cathode RGB:
+// HIGH = colour ON
+// LOW  = colour OFF
+// --------------------------------------------------
+void setRGB(bool red, bool green, bool blue) {
+  digitalWrite(RGB_RED_PIN, red ? HIGH : LOW);
+  digitalWrite(RGB_GREEN_PIN, green ? HIGH : LOW);
+  digitalWrite(RGB_BLUE_PIN, blue ? HIGH : LOW);
+}
+
+// --------------------------------------------------
+// State Name Helper
+// --------------------------------------------------
+const char* getStateName(SystemState state) {
+  switch (state) {
+    case IDLE:
+      return "IDLE";
+    case MONITORING:
+      return "MONITOR";
+    case IRRIGATING:
+      return "IRRIGATE";
+    case WARNING:
+      return "WARNING";
+    case FAILSAFE:
+      return "FAILSAFE";
+    default:
+      return "UNKNOWN";
+  }
+}
