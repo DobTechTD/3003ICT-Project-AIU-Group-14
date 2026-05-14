@@ -85,7 +85,7 @@ Video file:
 ## Project Title
 
 Autonomous Irrigation Unit  
-A.I.U - Smart Agricultural Irrigation and Heat-Risk Monitoring Controller
+A.I.U
 
 ## Author
 
