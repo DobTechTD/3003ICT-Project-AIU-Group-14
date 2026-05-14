@@ -1,9 +1,13 @@
 # 3003ICT Project - Autonomous Irrigation Unit
 
 ## Project Overview
-The Autonomous Irrigation Unit (A.I.U for short), is an embedded controller for agriculture that uses environmental data sensing to manage general irrigation, detect heat and its risk, and maintain safe operation under both night and day, as well as water-availability conditions. 
+
+The Autonomous Irrigation Unit, abbreviated as A.I.U, is an embedded agricultural controller that uses environmental sensor data to manage irrigation, detect heat-risk conditions, and maintain safe operation under day/night and water-availability conditions.
+
+The system is designed to monitor soil moisture, temperature, light level, and tank water level. Based on these inputs, it automatically controls irrigation, warning outputs, and failsafe behaviour through a finite state machine structure.
 
 ## Features
+
 - Soil moisture monitoring
 - Temperature and heat-risk detection
 - Day/night sensing
@@ -13,6 +17,7 @@ The Autonomous Irrigation Unit (A.I.U for short), is an embedded controller for 
 - LCD/status output
 
 ## Hardware / Wokwi Components
+
 - Arduino Uno
 - DHT22 temperature sensor
 - Photoresistor
@@ -41,6 +46,7 @@ The Autonomous Irrigation Unit (A.I.U for short), is an embedded controller for 
 | `/demo/project-demonstration.mp4` | Final project demonstration video |
 
 ## System States
+
 - Idle
 - Monitoring
 - Irrigating
@@ -48,18 +54,39 @@ The Autonomous Irrigation Unit (A.I.U for short), is an embedded controller for 
 - Failsafe
 
 ## How to Run
+
 1. Open the project in Wokwi.
-2. Ensure the required libraries are loaded.
-3. Run `sketch.ino`.
-4. Adjust the simulated sensors to test different conditions.
+2. Ensure the following files are included in the project:
+   - `sketch.ino`
+   - `Config.h`
+   - `Sensors.ino`
+   - `FSM.ino`
+   - `Outputs.ino`
+   - `Display.ino`
+   - `Button.ino`
+   - `diagram.json`
+   - `libraries.txt`
+3. Start the Wokwi simulation.
+4. Adjust the simulated sensor inputs to test different operating conditions.
+5. Observe the LCD, RGB LED, pump/relay output, and warning output as the system changes state.
 
 ## Demonstration Video
 
-The final project demonstration video is stored in the `/demo` folder.
+The final project demonstration video will be stored in the `/demo` folder.
 
 Video file:
 
 `/demo/project-demonstration.mp4`
 
+## Course
+
+3003ICT - Programming for Robotics
+
+## Project Title
+
+Autonomous Irrigation Unit  
+A.I.U - Smart Agricultural Irrigation and Heat-Risk Monitoring Controller
+
 ## Author
+
 Thomas Dobson
