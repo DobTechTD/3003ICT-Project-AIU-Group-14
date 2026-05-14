@@ -25,17 +25,20 @@ Briefly describe what the A.I.U does.
 - LCD 2004 I2C display
 
 ## File Structure
+
 | File | Purpose |
 |---|---|
-| `sketch.ino` | Main program entry point |
-| `Config.h` | Pin definitions, thresholds, constants |
-| `FSM.ino` | Finite state machine logic |
-| `Sensors.ino` | Sensor reading and conversion |
-| `Outputs.ino` | Pump, LED, buzzer/fan control |
-| `Display.ino` | LCD display logic |
-| `Button.ino` | Manual button handling |
-| `diagram.json` | Wokwi circuit simulation |
-| `libraries.txt` | Required Wokwi libraries |
+| `README.md` | Project documentation, overview, setup instructions, and demonstration information |
+| `sketch.ino` | Main program file containing `setup()`, `loop()`, and high-level control |
+| `Config.h` | Constants, pin mappings, thresholds, timing values, and shared configuration |
+| `Sensors.ino` | Sensor-reading functions such as temperature, soil moisture, water level, and light level |
+| `FSM.ino` | Finite State Machine logic, including state transitions and state behaviour |
+| `Outputs.ino` | Controls output devices such as the pump, RGB LED, buzzer, fan, and relay |
+| `Display.ino` | LCD display updates and user-facing system information |
+| `Button.ino` | Pushbutton input handling, debouncing, reset, and acknowledgement logic |
+| `diagram.json` | Wokwi circuit diagram for the simulated hardware setup |
+| `libraries.txt` | Required libraries for the Wokwi/Arduino simulation |
+| `/demo/project-demonstration.mp4` | Final project demonstration video |
 
 ## System States
 - Idle
@@ -51,7 +54,12 @@ Briefly describe what the A.I.U does.
 4. Adjust the simulated sensors to test different conditions.
 
 ## Demonstration Video
-Add the video file or link here.
+
+The final project demonstration video is stored in the `/demo` folder.
+
+Video file:
+
+`/demo/project-demonstration.mp4`
 
 ## Author
 Thomas Dobson
