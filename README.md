@@ -85,6 +85,12 @@ The project demonstration video is available here:
 Autonomous Irrigation Unit  
 A.I.U
 
+## Project Links
+
+- Wokwi simulation: (https://wokwi.com/projects/463889893028058113)
+- Report: paste-link-here-or-file
+- Demonstration video: (https://youtu.be/z0_Fx0ZoyUY)
+
 ## Author
 
 Thomas Dobson
