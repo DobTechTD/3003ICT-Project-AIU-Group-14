@@ -88,7 +88,7 @@ A.I.U
 ## Project Links
 
 - Wokwi simulation: https://wokwi.com/projects/463889893028058113
-- Report: https://github.com/DobTechTD/3003ICT-Project-AIU-Group-14/blob/main/s5434264_Group_14_Project_Report_3003ICT_Thomas_Dobson.pdf
+- Report: https://github.com/DobTechTD/3003ICT-Project-AIU-Group-14/blob/main/s5434264_Group_14_Project_Report_3003ICT_Thomas_Dobson-1.doc
 - Demonstration video: https://youtu.be/YA3cA9fydmg
 
 ## Author
