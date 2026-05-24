@@ -72,11 +72,9 @@ The system is designed to monitor soil moisture, temperature, light level, and t
 
 ## Demonstration Video
 
-The final project demonstration video will be stored in the `/demo` folder.
+The project demonstration video is available here:
 
-Video file:
-
-`/demo/project-demonstration.mp4`
+(https://youtu.be/z0_Fx0ZoyUY)
 
 ## Course
 
