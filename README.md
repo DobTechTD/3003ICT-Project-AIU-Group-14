@@ -74,7 +74,7 @@ The system is designed to monitor soil moisture, temperature, light level, and t
 
 The project demonstration video is available here:
 
-(https://youtu.be/z0_Fx0ZoyUY)
+https://youtu.be/YA3cA9fydmg
 
 ## Course
 
@@ -89,7 +89,7 @@ A.I.U
 
 - Wokwi simulation: https://wokwi.com/projects/463889893028058113
 - Report: https://github.com/DobTechTD/3003ICT-Project-AIU-Group-14/blob/main/s5434264_Group_14_Project_Report_3003ICT_Thomas_Dobson.docx
-- Demonstration video: https://youtu.be/z0_Fx0ZoyUY
+- Demonstration video: https://youtu.be/YA3cA9fydmg
 
 ## Author
 
