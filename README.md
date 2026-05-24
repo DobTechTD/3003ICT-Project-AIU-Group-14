@@ -43,7 +43,7 @@ The system is designed to monitor soil moisture, temperature, light level, and t
 | `Button.ino` | Pushbutton input handling, debouncing, reset, and acknowledgement logic |
 | `diagram.json` | Wokwi circuit diagram for the simulated hardware setup |
 | `libraries.txt` | Required libraries for the Wokwi/Arduino simulation |
-| `/demo/project-demonstration.mp4` | Final project demonstration video |
+| `Project_Report.pdf` | A.I.U Project Report |
 
 ## System States
 
